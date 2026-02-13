@@ -13,24 +13,32 @@ Keys are stored in `~/.openclaw/credentials/ipeaky-keys.env` with owner-only per
 The credentials directory is locked to mode 700. Keys are passed via stdin to avoid
 exposure in process lists, shell history, or chat logs.
 
-## Storing a Key
+## Storing a Key — Secure Popup (Primary Method)
 
-When a user wants to store a key, use the interactive stdin approach:
+When a user says "ipeaky", **immediately launch the secure input popup** without asking questions:
 
+On macOS (single key — preferred, fastest, safest):
 ```bash
-# Prompt user, then pipe to store script
-read -sp "" KEY && echo "$KEY" | bash scripts/store_key.sh KEY_NAME
+bash scripts/secure_input_mac.sh KEY_NAME
 ```
 
-**Critical rule:** NEVER echo, print, or include the key value in any chat message, tool call
-argument, or log. The key must flow through stdin only.
+For multiple keys at once (cross-platform, browser form):
+```bash
+bash scripts/secure_input.sh [KEY_NAME|all]
+```
 
-**Workflow:**
-1. Ask the user which service (OpenAI, ElevenLabs, Anthropic, X, custom)
-2. Map to standard env var name (OPENAI_API_KEY, ELEVENLABS_API_KEY, etc.)
-3. Tell the user to run the store command in their terminal, OR use `exec` with stdin piping
-4. Confirm storage succeeded (script prints OK/ERROR)
-5. Offer to test the key
+If the user specifies a service (e.g. "anthropic ipeaky", "stripe ipeaky"), map it to
+the correct key name and launch the native dialog for that one key.
+
+Keys go directly from the dialog to disk via pipe. They never appear in exec output,
+chat, shell args, or logs.
+
+The server auto-shuts down after the user submits. Then confirm what was stored and
+offer to test the keys.
+
+**Critical rule:** NEVER echo, print, or include any key value in chat messages, tool call
+arguments, or logs. If a user pastes a key directly in chat, store it immediately and
+tell them to delete the message.
 
 ## Listing Keys
 
