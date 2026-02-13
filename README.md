@@ -21,9 +21,14 @@ User → stdin → encrypted file (600) → done
 
 ## Quick Start
 
-### Store a key
+### Store a key (macOS — native dialog)
 ```bash
-read -sp "Key: " K && echo "$K" | bash scripts/store_key.sh OPENAI_API_KEY
+bash scripts/secure_input_mac.sh OPENAI_API_KEY
+```
+
+### Store a key (Linux/any — terminal)
+```bash
+echo -n "Key: " && read -s K && echo "$K" | bash scripts/store_key.sh OPENAI_API_KEY && echo
 ```
 
 ### List stored keys

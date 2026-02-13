@@ -17,20 +17,20 @@ exposure in process lists, shell history, or chat logs.
 
 When a user says "ipeaky", **immediately launch the secure input popup** without asking questions:
 
-On macOS (single key — preferred, fastest, safest):
+On macOS (native dialog — preferred, fastest, safest):
 ```bash
 bash scripts/secure_input_mac.sh KEY_NAME
 ```
 
-For multiple keys at once (cross-platform, browser form):
+On Linux/other (terminal prompt — also secure):
 ```bash
-bash scripts/secure_input.sh [KEY_NAME|all]
+echo -n "Key: " && read -s K && echo "$K" | bash scripts/store_key.sh KEY_NAME && echo
 ```
 
 If the user specifies a service (e.g. "anthropic ipeaky", "stripe ipeaky"), map it to
-the correct key name and launch the native dialog for that one key.
+the correct key name and launch the appropriate input method.
 
-Keys go directly from the dialog to disk via pipe. They never appear in exec output,
+Keys go directly from user input to disk via pipe. They never appear in exec output,
 chat, shell args, or logs.
 
 The server auto-shuts down after the user submits. Then confirm what was stored and
