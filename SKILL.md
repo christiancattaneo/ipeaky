@@ -1,6 +1,12 @@
 ---
 name: ipeaky
 description: Secure API key management for OpenClaw. Store, list, test, and delete API keys without exposing them in chat history. Keys are stored directly in openclaw.json via gateway config.patch — fully native integration. Use when a user needs to provide, manage, or test API keys (e.g., OpenAI, ElevenLabs, Anthropic, Brave, or any service). Triggers on phrases like "add API key", "store my key", "manage keys", "test my key", "set up API key", or when a skill requires an API key that isn't configured.
+metadata:
+  openclaw:
+    platforms: [macos]
+    requires:
+      bins: [osascript]
+    notes: "Secure input popup requires macOS (osascript). Linux/Windows users can pipe keys via stdin directly."
 ---
 
 # ipeaky — Secure API Key Management

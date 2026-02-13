@@ -6,74 +6,88 @@ Keys never touch chat history, command arguments, or logs. Ever.
 
 ## Why
 
-AI agents need API keys. Pasting them in chat is a security nightmare — they end up in conversation history, logs, and context windows. ipeaky solves this.
+AI agents need API keys. Pasting them in chat is a security nightmare — they end up in conversation history, logs, and context windows. ipeaky solves this with a chat-native flow that keeps keys invisible end-to-end.
 
 ## How It Works
 
 ```
-User → stdin → encrypted file (600) → done
+"Store my OpenAI key" → secure popup (hidden input) → config.patch → openclaw.json → done
 ```
 
-- Keys flow through **stdin only** — never in shell args or chat
-- Stored in `~/.openclaw/credentials/` with **owner-only permissions**
-- Masked display (first 4 chars + `****`)
-- Built-in validation for popular APIs
+1. **You say** "store my key" in chat
+2. **Native macOS dialog** pops up with a hidden input field (dots, not plaintext)
+3. **Key pipes through stdout** to OpenClaw's `gateway config.patch`
+4. **Stored in `openclaw.json`** — OpenClaw's native config, auto-injected into all skills via `primaryEnv`
+5. **Gateway reloads** — every skill picks up the key immediately, zero manual wiring
 
-## Quick Start
+Keys never appear in chat, shell history, process lists, or logs.
 
-### Store a key (macOS — native dialog)
+## Scripts
+
+### `secure_input_mac.sh` — Secure input popup (macOS)
 ```bash
 bash scripts/secure_input_mac.sh OPENAI_API_KEY
+# → Native macOS dialog with hidden input
+# → Outputs key to stdout (captured by agent, never displayed)
 ```
 
-### Store a key (Linux/any — terminal)
+### `test_key.sh` — Validate a key against the provider API
 ```bash
-echo -n "Key: " && read -s K && echo "$K" | bash scripts/store_key.sh OPENAI_API_KEY && echo
+echo "$KEY" | bash scripts/test_key.sh openai
+# → OK: OpenAI key (sk-7****) is valid.
 ```
 
-### List stored keys
-```bash
-bash scripts/list_keys.sh
-# Output: OPENAI_API_KEY = sk-7****
-```
+Reads key from **stdin only**. Output always uses masked values (first 4 chars + `****`).
 
-### Test a key
-```bash
-bash scripts/test_key.sh OPENAI_API_KEY
-# Output: OK: OpenAI key is valid.
-```
-
-### Delete a key
-```bash
-bash scripts/delete_key.sh OPENAI_API_KEY
-```
+**Other operations** (list, delete) are handled agent-side via `gateway config.get` and `gateway config.patch` — no extra scripts needed.
 
 ## Supported Services
 
-| Service | Key Name | Auto-test |
-|---------|----------|-----------|
-| OpenAI | `OPENAI_API_KEY` | ✅ |
-| ElevenLabs | `ELEVENLABS_API_KEY` | ✅ |
-| Anthropic | `ANTHROPIC_API_KEY` | ✅ |
-| X / Twitter | `X_API_KEY` | — |
-| Stripe | `STRIPE_API_KEY` | — |
-| Any service | `YOUR_KEY_NAME` | — |
+| Service | Test Endpoint | Auto-test |
+|---------|--------------|-----------|
+| OpenAI | `/v1/models` | ✅ |
+| ElevenLabs | `/v1/user` | ✅ |
+| Anthropic | `/v1/messages` | ✅ |
+| Brave Search | `/res/v1/web/search` | ✅ |
+| Gemini | `/v1/models` | ✅ |
+| Any service | — | stored, no auto-test |
+
+## Storage Model
+
+ipeaky v2 stores keys in **OpenClaw's native config** (`openclaw.json`) via `gateway config.patch`:
+
+- Keys are injected into skills automatically via OpenClaw's `primaryEnv` system
+- One key can serve multiple skills (e.g., OpenAI key → whisper, image-gen, etc.)
+- `config.patch` triggers a gateway reload — keys take effect immediately
+- No separate credential files, no `source` commands, no manual env setup
+
+**Trade-off:** Keys in `openclaw.json` are available to all skills that declare the matching `primaryEnv`. This is intentional — it's how OpenClaw's skill system works. If you need per-skill isolation, use a different approach.
 
 ## Security Model
 
-- **stdin-only input** — keys never appear in `ps`, `history`, or chat
-- **File permissions** — credentials dir `700`, key file `600`
-- **Masked output** — list shows `sk-7****`, never full values
-- **No network** — storage is purely local, tests are opt-in
-- **No dependencies** — pure bash, runs everywhere
+- **Hidden input** — macOS native dialog with `with hidden answer` (dots, not plaintext)
+- **stdin-only piping** — keys never appear in `ps`, `history`, or chat
+- **Masked output** — display shows `sk-7****`, never full values
+- **No eval** — scripts use no `eval` or dynamic execution
+- **Strict mode** — all scripts use `set -euo pipefail`
+- **Storage is local** — `openclaw.json` on disk, no external transmission
+- **Tests are networked** — validation calls provider APIs (opt-in, read-only endpoints)
 
-## Install as OpenClaw Skill
+## Testing
 
-Drop the `ipeaky/` folder into your OpenClaw skills directory, or install from ClawHub:
+Run the full test suite (20 tests — static analysis, security audit, live key validation):
+
+```bash
+bash tests/run_tests.sh
+```
+
+## Install
 
 ```
 clawhub install ipeaky
 ```
+
+Or drop the `ipeaky/` folder into your OpenClaw skills directory.
 
 ## License
 
