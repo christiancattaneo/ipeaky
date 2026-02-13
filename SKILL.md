@@ -1,92 +1,84 @@
 ---
 name: ipeaky
-description: Secure API key management for OpenClaw. Store, list, test, and delete API keys without exposing them in chat history. Use when a user needs to provide, manage, or test API keys (e.g., OpenAI, ElevenLabs, Anthropic, X/Twitter, or any service). Triggers on phrases like "add API key", "store my key", "manage keys", "test my key", "set up API key", or when a skill requires an API key that isn't configured.
+description: Secure API key management for OpenClaw. Store, list, test, and delete API keys without exposing them in chat history. Keys are stored directly in openclaw.json via gateway config.patch — fully native integration. Use when a user needs to provide, manage, or test API keys (e.g., OpenAI, ElevenLabs, Anthropic, Brave, or any service). Triggers on phrases like "add API key", "store my key", "manage keys", "test my key", "set up API key", or when a skill requires an API key that isn't configured.
 ---
 
-# ipeaky 🔑
+# ipeaky — Secure API Key Management
 
-Secure API key management — keys never appear in chat history.
+Keys are stored **directly in OpenClaw's native config** (`openclaw.json`) via `gateway config.patch`.
+This means every skill that declares `primaryEnv` automatically picks up the key — zero manual wiring.
 
-## How It Works
+## Key Map — Service to Config Path
 
-Keys are stored in `~/.openclaw/credentials/ipeaky-keys.env` with owner-only permissions (600).
-The credentials directory is locked to mode 700. Keys are passed via stdin to avoid
-exposure in process lists, shell history, or chat logs.
+| Service | Config Path | primaryEnv |
+|---------|------------|------------|
+| OpenAI | `skills.entries.openai-whisper-api.apiKey` | OPENAI_API_KEY |
+| ElevenLabs | `skills.entries.sag.apiKey` | ELEVENLABS_API_KEY |
+| Brave Search | `tools.web.search.apiKey` | BRAVE_API_KEY |
+| Gemini | `skills.entries.nano-banana-pro.apiKey` | GEMINI_API_KEY |
+| Google Places | `skills.entries.goplaces.apiKey` | GOOGLE_PLACES_API_KEY |
+| Notion | `skills.entries.notion.apiKey` | NOTION_API_KEY |
+| ElevenLabs Talk | `talk.apiKey` | (direct) |
+| Custom skill | `skills.entries.<skill-name>.apiKey` | (per skill) |
+| Custom env | `skills.entries.<skill-name>.env.<VAR_NAME>` | (arbitrary) |
 
-## Storing a Key — Secure Popup (Primary Method)
+**Important:** Some keys serve multiple skills. OpenAI key is used by `openai-whisper-api`,
+`openai-image-gen`, etc. ElevenLabs key is used by `sag` and `talk`. When storing, set ALL
+relevant config paths for that key.
 
-When a user says "ipeaky", **immediately launch the secure input popup** without asking questions:
+## Storing a Key
 
-On macOS (native dialog — preferred, fastest, safest):
+**Step 1:** Launch the secure input popup. On macOS:
 ```bash
-bash scripts/secure_input_mac.sh KEY_NAME
+bash {baseDir}/scripts/secure_input_mac.sh KEY_NAME
 ```
 
-On Linux/other (terminal prompt — also secure):
-```bash
-echo -n "Key: " && read -s K && echo "$K" | bash scripts/store_key.sh KEY_NAME && echo
+**Step 2:** Once you have the key value (from stdout of the script), store it via gateway config.patch.
+
+Example for OpenAI:
+```
+gateway config.patch with raw: {"skills":{"entries":{"openai-whisper-api":{"apiKey":"THE_KEY"},"openai-image-gen":{"apiKey":"THE_KEY"}}}}
 ```
 
-If the user specifies a service (e.g. "anthropic ipeaky", "stripe ipeaky"), map it to
-the correct key name and launch the appropriate input method.
+Example for ElevenLabs:
+```
+gateway config.patch with raw: {"skills":{"entries":{"sag":{"apiKey":"THE_KEY"}}},"talk":{"apiKey":"THE_KEY"}}
+```
 
-Keys go directly from user input to disk via pipe. They never appear in exec output,
-chat, shell args, or logs.
+Example for Brave Search:
+```
+gateway config.patch with raw: {"tools":{"web":{"search":{"apiKey":"THE_KEY"}}}}
+```
 
-The server auto-shuts down after the user submits. Then confirm what was stored and
-offer to test the keys.
-
-**Critical rule:** NEVER echo, print, or include any key value in chat messages, tool call
-arguments, or logs. If a user pastes a key directly in chat, store it immediately and
-tell them to delete the message.
+**Critical rules:**
+- NEVER echo, print, or include any key value in chat messages or tool call arguments
+- NEVER include key values in the `reason` field of config.patch
+- If a user pastes a key directly in chat, store it immediately and tell them to delete the message
+- The secure_input_mac.sh script outputs the key to stdout — capture it in a variable, use it in config.patch, never log it
 
 ## Listing Keys
 
-```bash
-bash scripts/list_keys.sh
-```
-
-Shows key names with masked values (first 4 chars + ****). Never shows full values.
+Read from the live config using `gateway config.get`. Show masked values only (first 4 chars + ****).
+Parse the config JSON and find all `apiKey` fields, display their config path and masked value.
 
 ## Testing a Key
 
-```bash
-bash scripts/test_key.sh KEY_NAME
-```
+Test endpoints:
+- **OpenAI**: `curl -s -H "Authorization: Bearer $KEY" https://api.openai.com/v1/models | head`
+- **ElevenLabs**: `curl -s -H "xi-api-key: $KEY" https://api.elevenlabs.io/v1/user`
+- **Anthropic**: `curl -s -H "x-api-key: $KEY" -H "anthropic-version: 2023-06-01" https://api.anthropic.com/v1/messages -d '{"model":"claude-3-haiku-20240307","max_tokens":1,"messages":[{"role":"user","content":"hi"}]}'`
+- **Brave Search**: `curl -s -H "X-Subscription-Token: $KEY" "https://api.search.brave.com/res/v1/web/search?q=test&count=1"`
 
-Built-in tests for: OPENAI_API_KEY, ELEVENLABS_API_KEY, ANTHROPIC_API_KEY.
-Other keys report storage status only.
+Source the key from the config (via gateway config.get), test it, report result. Never show the key.
 
 ## Deleting a Key
 
-```bash
-bash scripts/delete_key.sh KEY_NAME
-```
-
-## Loading Keys at Runtime
-
-Other skills/tools can source stored keys:
-
-```bash
-source ~/.openclaw/credentials/ipeaky-keys.env
-```
-
-## Standard Key Names
-
-| Service | Key Name |
-|---------|----------|
-| OpenAI | OPENAI_API_KEY |
-| ElevenLabs | ELEVENLABS_API_KEY |
-| Anthropic | ANTHROPIC_API_KEY |
-| X / Twitter | X_API_KEY, X_API_SECRET |
-| Stripe | STRIPE_API_KEY |
-| Custom | USER_DEFINED_NAME |
+Use `gateway config.patch` to set the key value to an empty string or remove the entry.
 
 ## Security Guarantees
 
-- Keys never appear in chat messages or tool call arguments
-- Keys never appear in shell command arguments (stdin only)
-- Credential files are owner-read-only (600)
-- Credential directory is owner-only (700)
-- List command shows masked values only
-- No keys in logs or memory files
+- Keys go: secure popup → stdout pipe → config.patch → openclaw.json (never chat)
+- Keys are automatically available to all skills via OpenClaw's native env injection
+- No separate credential files to manage
+- No manual `source` commands needed
+- config.patch triggers a gateway reload so keys take effect immediately
