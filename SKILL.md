@@ -32,7 +32,33 @@ This means every skill that declares `primaryEnv` automatically picks up the key
 `openai-image-gen`, etc. ElevenLabs key is used by `sag` and `talk`. When storing, set ALL
 relevant config paths for that key.
 
-## Storing a Key
+## Storing a Key (v3 — Zero Exposure)
+
+**Use the v3 script.** The agent NEVER sees the key. The script handles popup + storage directly.
+
+```bash
+bash {baseDir}/scripts/store_key_v3.sh "<SERVICE_NAME>" "<config_path1>" ["<config_path2>" ...]
+```
+
+### Examples:
+```bash
+# Brave Search
+bash {baseDir}/scripts/store_key_v3.sh "Brave Search" "tools.web.search.apiKey"
+
+# OpenAI (multiple paths)
+bash {baseDir}/scripts/store_key_v3.sh "OpenAI" "skills.entries.openai-whisper-api.apiKey"
+
+# ElevenLabs (sag + talk)
+bash {baseDir}/scripts/store_key_v3.sh "ElevenLabs" "skills.entries.sag.apiKey" "talk.apiKey"
+```
+
+The script:
+1. Shows macOS popup (hidden input)
+2. Calls `openclaw config set` for each path
+3. Restarts gateway
+4. Returns ONLY "OK" or "ERROR" — key never appears in agent output or chat history
+
+### Legacy Method (v2 — agent sees key, NOT recommended)
 
 **Step 1:** Launch the secure input popup. On macOS:
 ```bash
