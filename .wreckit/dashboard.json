@@ -1,0 +1,19 @@
+{
+  "project": "ipeaky",
+  "mode": "AUDIT",
+  "timestamp": "2026-02-17T14:35:00-06:00",
+  "verdict": "BLOCKED",
+  "gates": {
+    "slop-scan": { "status": "pass", "findings": 0 },
+    "type-check": { "status": "skip", "reason": "bash - no type system" },
+    "test-quality": { "status": "caution", "tests": 18, "behavioral": 5, "static": 13, "uncoveredScripts": ["store_key_v3.sh"] },
+    "mutation-kill": { "status": "fail", "killRate": 0.35, "killed": 4, "survived": 6, "total": 10 },
+    "sast": { "status": "fail", "high": 2, "medium": 2, "low": 1, "info": 1 }
+  },
+  "securityFindings": [
+    { "severity": "HIGH", "id": "SAST-001", "title": "Key exposed in process list via CLI args", "file": "store_key_v3.sh" },
+    { "severity": "HIGH", "id": "SAST-002", "title": "Gemini key passed as URL query parameter", "file": "test_key.sh" },
+    { "severity": "MEDIUM", "id": "SAST-003", "title": "AppleScript injection via SERVICE_NAME", "file": "store_key_v3.sh" },
+    { "severity": "MEDIUM", "id": "SAST-004", "title": "Keys visible in curl CLI args", "file": "test_key.sh" }
+  ]
+}

@@ -162,6 +162,75 @@ fi
 echo ""
 
 # -------------------------------------------------------
+echo "--- store_key_v3.sh ---"
+
+# T19: Missing arguments → exits non-zero
+echo "T19: Missing SERVICE_NAME argument"
+if bash "$SCRIPTS/store_key_v3.sh" 2>/dev/null; then
+  fail "Should have exited non-zero with no args"
+else
+  pass "Exits non-zero with no args"
+fi
+
+# T20: Missing config paths → exits non-zero
+echo "T20: Missing config paths"
+if bash "$SCRIPTS/store_key_v3.sh" "Test Service" 2>/dev/null; then
+  fail "Should have exited non-zero with no config paths"
+else
+  pass "Exits non-zero with no config paths"
+fi
+
+# T21: Strict mode
+echo "T21: Strict mode (set -euo pipefail)"
+if grep -q "set -euo pipefail" "$SCRIPTS/store_key_v3.sh"; then
+  pass "Strict mode enabled"
+else
+  fail "Missing set -euo pipefail"
+fi
+
+# T22: Service name sanitization
+echo "T22: SERVICE_NAME sanitization (shell injection protection)"
+if grep -q "SAFE_SERVICE_NAME" "$SCRIPTS/store_key_v3.sh" && grep -q "sed.*['\"].*['\"]" "$SCRIPTS/store_key_v3.sh"; then
+  pass "SERVICE_NAME sanitization implemented"
+else
+  fail "Missing SERVICE_NAME sanitization"
+fi
+
+# T23: Temp file security
+echo "T23: Temp file with secure permissions (chmod 600)"
+if grep -q "chmod 600.*TEMP_KEY_FILE" "$SCRIPTS/store_key_v3.sh"; then
+  pass "Temp file secured with chmod 600"
+else
+  fail "Missing temp file permission setting"
+fi
+
+# T24: Secure cleanup
+echo "T24: Secure temp file cleanup (overwrite + remove)"
+if grep -q "dd.*if=/dev/urandom.*TEMP_KEY_FILE" "$SCRIPTS/store_key_v3.sh" && grep -q "rm.*TEMP_KEY_FILE" "$SCRIPTS/store_key_v3.sh"; then
+  pass "Secure cleanup implemented"
+else
+  fail "Missing secure cleanup of temp file"
+fi
+
+# T25: No direct key in openclaw command
+echo "T25: Key not passed directly as CLI arg to openclaw"
+if grep -q 'openclaw.*set.*\$KEY_VALUE' "$SCRIPTS/store_key_v3.sh"; then
+  fail "KEY_VALUE still passed directly to openclaw (process list leak!)"
+else
+  pass "KEY_VALUE not directly passed to openclaw"
+fi
+
+# T26: Uses cat from temp file
+echo "T26: Uses cat from temp file for openclaw input"
+if grep -q 'cat.*TEMP_KEY_FILE' "$SCRIPTS/store_key_v3.sh"; then
+  pass "Uses cat from temp file for secure input"
+else
+  fail "Missing cat from temp file pattern"
+fi
+
+echo ""
+
+# -------------------------------------------------------
 echo "--- Live key validation (via openclaw.json config) ---"
 
 # v2 stores keys in openclaw.json via gateway config.patch

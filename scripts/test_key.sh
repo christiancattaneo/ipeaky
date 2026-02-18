@@ -59,7 +59,8 @@ case "$SERVICE" in
     fi
     ;;
   GEMINI_API_KEY|gemini)
-    RESP=$(curl -s -w "\n%{http_code}" "https://generativelanguage.googleapis.com/v1/models?key=$KEY" 2>/dev/null)
+    # Use header auth instead of query param to avoid key exposure in logs
+    RESP=$(curl -s -w "\n%{http_code}" -H "x-goog-api-key: $KEY" "https://generativelanguage.googleapis.com/v1/models" 2>/dev/null)
     CODE=$(echo "$RESP" | tail -1)
     if [ "$CODE" = "200" ]; then
       echo "OK: Gemini key ($MASKED) is valid."

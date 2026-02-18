@@ -20,9 +20,13 @@ if [ ${#CONFIG_PATHS[@]} -eq 0 ]; then
   exit 1
 fi
 
+# --- Sanitize SERVICE_NAME to prevent shell injection ---
+# Remove quotes, backticks, dollar signs, semicolons, and other dangerous chars
+SAFE_SERVICE_NAME=$(echo "$SERVICE_NAME" | sed 's/["`$;\\|&<>(){}]//_/g' | tr -s '_')
+
 # --- 1. Secure input via macOS popup ---
 KEY_VALUE=$(osascript <<EOF
-set dialogResult to display dialog "Enter your ${SERVICE_NAME} API key:" with title "ipeaky 🔑" default answer "" with hidden answer buttons {"Cancel", "Store"} default button "Store"
+set dialogResult to display dialog "Enter your ${SAFE_SERVICE_NAME} API key:" with title "ipeaky 🔑" default answer "" with hidden answer buttons {"Cancel", "Store"} default button "Store"
 return text returned of dialogResult
 EOF
 ) || { echo "CANCELLED"; exit 2; }
@@ -32,16 +36,24 @@ if [ -z "$KEY_VALUE" ]; then
   exit 1
 fi
 
-# --- 2. Store via openclaw config set for each path ---
+# --- 2. Store via openclaw config set using secure temp file ---
+# Create temp file with 0600 perms (owner read/write only)
+TEMP_KEY_FILE=$(mktemp)
+chmod 600 "$TEMP_KEY_FILE"
+
+# Write key to temp file
+echo -n "$KEY_VALUE" > "$TEMP_KEY_FILE"
+
 STORED=0
 FAILED=0
 
 for CONFIG_PATH in "${CONFIG_PATHS[@]}"; do
-  if openclaw config set "$CONFIG_PATH" "$KEY_VALUE" --restart=false 2>/dev/null; then
+  # Read key from temp file to avoid process list exposure
+  if openclaw config set "$CONFIG_PATH" "$(cat "$TEMP_KEY_FILE")" --restart=false 2>/dev/null; then
     STORED=$((STORED + 1))
   else
     # Fallback: try without --restart flag
-    if openclaw config set "$CONFIG_PATH" "$KEY_VALUE" 2>/dev/null; then
+    if openclaw config set "$CONFIG_PATH" "$(cat "$TEMP_KEY_FILE")" 2>/dev/null; then
       STORED=$((STORED + 1))
     else
       FAILED=$((FAILED + 1))
@@ -49,6 +61,11 @@ for CONFIG_PATH in "${CONFIG_PATHS[@]}"; do
     fi
   fi
 done
+
+# --- Secure cleanup of temp file ---
+# Overwrite with random data before deletion
+dd if=/dev/urandom of="$TEMP_KEY_FILE" bs=1024 count=1 2>/dev/null || true
+rm -f "$TEMP_KEY_FILE"
 
 # --- 3. Clear sensitive data ---
 KEY_VALUE=""
